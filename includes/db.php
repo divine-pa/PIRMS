@@ -1,7 +1,7 @@
 <?php
 
 $DB_HOST = 'localhost';
-$DB_PORT = '3306';
+$DB_PORT = '2007';
 $DB_NAME = 'pirms';
 $DB_USER = 'root';
 $DB_PASS = '';
@@ -17,7 +17,6 @@ try {
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         ]
     );
-    echo "Connected successfully to XAMPP on port 2007!";
 } catch (PDOException $e) {
     die("Database connection failed: " . htmlspecialchars($e->getMessage()));
 }
