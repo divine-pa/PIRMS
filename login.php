@@ -198,51 +198,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
   <!-- Footer Section -->
-  <footer class="text-white pt-7" style="background-color: #10233e;">
-    <div class="container">
-      <div class="row pb-4">
-        <!-- PIRMS Logo/Description -->
-        <div class="col-md-4 mb-4 mb-md-0 d-flex flex-column align-items-md-start align-items-center">
-          <div class="mb-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="rgb(240,173,78)" class="bi bi-shield" viewBox="0 0 16 16">
-              <path d="M5.338 1.59a61 61 0 0 0-2.837.856.48.48 0 0 0-.328.39c-.554 4.157.726 7.19 2.253 9.188a10.7 10.7 0 0 0 2.287 2.233c.346.244.652.42.893.533q.18.085.293.118a1 1 0 0 0 .101.025 1 1 0 0 0 .1-.025q.114-.034.294-.118c.24-.113.547-.29.893-.533a10.7 10.7 0 0 0 2.287-2.233c1.527-1.997 2.807-5.031 2.253-9.188a.48.48 0 0 0-.328-.39c-.651-.213-1.75-.56-2.837-.855C9.552 1.29 8.531 1.067 8 1.067c-.53 0-1.552.223-2.662.524z" />
-              <path d="M5.072.56C6.157.265 7.31 0 8 0s1.843.265 2.928.56c1.11.3 2.229.655 2.887.87a1.54 1.54 0 0 1 1.044 1.262c.596 4.477-.787 7.795-2.465 9.99a11.8 11.8 0 0 1-2.517 2.453 7 7 0 0 1-1.048.625c-.28.132-.581.24-.829.24s-.548-.108-.829-.24a7 7 0 0 1-1.048-.625 11.8 11.8 0 0 1-2.517-2.453C1.928 10.487.545 7.169 1.141 2.692A1.54 1.54 0 0 1 2.185 1.43 63 63 0 0 1 5.072.56" />
-            </svg>
-            <span class="ms-2 fw-semibold">PIRMS</span>
-          </div>
-          <div class="text-white-50 small mt-1 text-md-start text-center">
-            Digital Record Management for Modern Policing.<br>
-            Secure, efficient, and reliable.
-          </div>
-        </div>
-
-        <!-- Contact Information -->
-        <div class="col-md-4 mb-4 mb-md-0 text-md-center text-center">
-          <span class="fw-semibold mb-2 d-block">Contact Information</span>
-          <div class="small text-white-50">
-            <div class="mb-1"><span class="me-2">&#128222;</span>+234 913 435 2139</div>
-            <div class="mb-1"><span class="me-2">&#9993;</span>contact@pirms.com</div>
-            <div><span class="me-2">&#128205;</span>123, Lekki, Lagos</div>
-          </div>
-        </div>
-
-        <!-- Quick Links -->
-        <div class="col-md-4 text-md-end text-center">
-          <span class="fw-semibold mb-2 d-block">Quick Links</span>
-          <ul class="list-unstyled small text-white-50">
-            <li class="mb-1"><a href="#" class="text-white-50 text-decoration-none">Privacy Policy</a></li>
-            <li class="mb-1"><a href="#" class="text-white-50 text-decoration-none">Terms of Service</a></li>
-            <li class="mb-1"><a href="#" class="text-white-50 text-decoration-none">Support</a></li>
-            <li><a href="#" class="text-white-50 text-decoration-none">Documentation</a></li>
-          </ul>
-        </div>
-      </div>
-      <hr class="border-light my-3">
-      <div class="text-center pb-3 small text-white-50">
-        © 2025 PIRMS - Police Investigation Record Management System. All rights reserved.
-      </div>
-    </div>
-  </footer>
 
 
 
