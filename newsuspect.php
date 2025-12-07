@@ -18,22 +18,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $status = $_POST['status'] ?? '';
   $charges = $_POST['charges_data'] ?? '';
 
-  // 3. Prepare Insert (Using YOUR exact table columns)
-  $sql = "INSERT INTO suspect 
-            (suspect_id, name, gender, age, date_of_birth, address, physical_description, case_id, status, charges) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+  // 3. Start a transaction (so both inserts succeed or both fail)
+  try {
+    $pdo->beginTransaction();
 
-  $stmt = $pdo->prepare($sql);
+    // 4. Insert into SUSPECT table (WITHOUT case_id - we'll use the join table instead)
+    $sql = "INSERT INTO suspect 
+              (suspect_id, name, gender, age, date_of_birth, address, physical_description, status, charges) 
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-  // 4. Execute
-  if ($stmt->execute([$suspect_id, $name, $gender, $age, $date_of_birth, $address, $physical_description, $case_id, $status, $charges])) {
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$suspect_id, $name, $gender, $age, $date_of_birth, $address, $physical_description, $status, $charges]);
+
+    // 5. Insert into CASE_SUSPECT join table to link suspect to case
+    if (!empty($case_id)) {
+      $joinSql = "INSERT INTO case_suspect (case_id, suspect_id) VALUES (?, ?)";
+      $joinStmt = $pdo->prepare($joinSql);
+      $joinStmt->execute([$case_id, $suspect_id]);
+    }
+
+    // 6. Commit the transaction
+    $pdo->commit();
+
     // Log the insertion for debugging
-    error_log("Suspect inserted: ID=$suspect_id, Name=$name, Case=$case_id");
+    error_log("Suspect created: ID=$suspect_id, Name=$name, Case=$case_id");
+    error_log("Join table entry created: case_id=$case_id, suspect_id=$suspect_id");
+
     header("Location: suspects.php?msg=added");
     exit;
-  } else {
-    // Error handling
-    die("Error saving suspect: " . implode(" ", $stmt->errorInfo()));
+  } catch (Exception $e) {
+    // If anything fails, rollback both inserts
+    $pdo->rollBack();
+    die("Error saving suspect: " . $e->getMessage());
   }
 }
 
@@ -47,8 +63,6 @@ try {
 }
 ?>
 
-
-
 <!DOCTYPE html>
 <html lang="en">
 
@@ -57,14 +71,11 @@ try {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>New Suspect</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-
 </head>
 
 <body>
 
   <!--header-->
-
-
   <section style="background-color: #081b34;">
     <header class="d-flex flex-wrap justify-content-center py-3 mb-4 ">
       <a href="./images/dog-img.jpg" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto link-body-emphasis text-decoration-none">
@@ -75,19 +86,15 @@ try {
           <path d="M5.338 1.59a61 61 0 0 0-2.837.856.48.48 0 0 0-.328.39c-.554 4.157.726 7.19 2.253 9.188a10.7 10.7 0 0 0 2.287 2.233c.346.244.652.42.893.533q.18.085.293.118a1 1 0 0 0 .101.025 1 1 0 0 0 .1-.025q.114-.034.294-.118c.24-.113.547-.29.893-.533a10.7 10.7 0 0 0 2.287-2.233c1.527-1.997 2.807-5.031 2.253-9.188a.48.48 0 0 0-.328-.39c-.651-.213-1.75-.56-2.837-.855C9.552 1.29 8.531 1.067 8 1.067c-.53 0-1.552.223-2.662.524zM5.072.56C6.157.265 7.31 0 8 0s1.843.265 2.928.56c1.11.3 2.229.655 2.887.87a1.54 1.54 0 0 1 1.044 1.262c.596 4.477-.787 7.795-2.465 9.99a11.8 11.8 0 0 1-2.517 2.453 7 7 0 0 1-1.048.625c-.28.132-.581.24-.829.24s-.548-.108-.829-.24a7 7 0 0 1-1.048-.625 11.8 11.8 0 0 1-2.517-2.453C1.928 10.487.545 7.169 1.141 2.692A1.54 1.54 0 0 1 2.185 1.43 63 63 0 0 1 5.072.56" />
         </svg>
         <span class="fs-4 text-white">P.I.R.M.S</span>
-
       </a>
-
 
       <ul class="nav nav-pills align-items-center">
         <li class="nav-item"><a href="./dashboard.php" class="nav-link text-white" aria-current="page">Dashboard</a></li>
         <li class="nav-item"><a href="./cases.php" class="nav-link text-white">Cases</a></li>
         <li class="nav-item"><a href="./evidence.php" class="nav-link text-white">Evidence</a></li>
-
         <li class="nav-item"><a href="./suspects.php" class="nav-link text-white">Suspects</a></li>
         <li class="nav-item"><a href="./officer.php" class="nav-link text-white">Officers</a></li>
         <li class="nav-item"><a href="./department.php" class="nav-link text-white">Department</a></li>
-
         <li class="nav-item"><a href="./contact.php" class="nav-link text-white">Contact</a></li>
         <li class="nav-item">
           <a href="./setting.php" class="nav-link text-white p-0" aria-label="Settings">
@@ -100,13 +107,7 @@ try {
         <a href="logout.php" class="btn btn-warning px-4 ms-3" type="button">Logout</a>
       </ul>
     </header>
-
   </section>
-
-  <!--header end-->
-
-
-
 
   <div class="container" style="max-width: 900px;">
     <!-- Header -->
@@ -127,7 +128,6 @@ try {
     </div>
 
     <form id="suspectForm" method="POST" action="newsuspect.php" novalidate>
-
       <input type="hidden" name="charges_data" id="chargesHiddenInput">
 
       <div class="card mb-4">
@@ -154,7 +154,7 @@ try {
 
             <div class="col-md-4">
               <label for="age" class="form-label">Age <span class="text-danger">*</span></label>
-              <input type="number" id="age" name="age" class="form-select" placeholder="e.g., 34" required />
+              <input type="number" id="age" name="age" class="form-control" placeholder="e.g., 34" required />
               <div class="invalid-feedback">Age is required.</div>
             </div>
 
@@ -228,7 +228,7 @@ try {
       </div>
 
       <div class="d-flex gap-3">
-        <button type="submit" class="btn btn- btn-outline-primary flex-grow-1">
+        <button type="submit" class="btn btn-outline-primary flex-grow-1">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-save2 me-2" viewBox="0 0 16 16">
             <path d="M6.5 1a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 1 0v-1a.5.5 0 0 0-.5-.5zM1 2.5A1.5 1.5 0 0 1 2.5 1h5.793a1.5 1.5 0 0 1 1.06.44l3.207 3.207a1.5 1.5 0 0 1 .44 1.06v7.793A1.5 1.5 0 0 1 11.5 15h-9A1.5 1.5 0 0 1 1 13.5v-11z" />
             <path d="M4.5 5a.5.5 0 0 1 .5.5V9h1a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.5-.5v-4a.5.5 0 0 1 .5-.5z" />
@@ -240,24 +240,15 @@ try {
     </form>
   </div>
 
-
-
-
-
-
   <div class="container mb-5"></div>
 
-
-  <!-- Footer Section -->
   <footer class="text-white pt-7" style="background-color: #10233e;">
     <div class="container">
       <div class="row pb-4">
-        <!-- PIRMS Logo/Description -->
         <div class="col-md-4 mb-4 mb-md-0 d-flex flex-column align-items-md-start align-items-center">
           <div class="mb-2">
             <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="rgb(240,173,78)" class="bi bi-shield" viewBox="0 0 16 16">
-              <path d="M5.338 1.59a61 61 0 0 0-2.837.856.48.48 0 0 0-.328.39c-.554 4.157.726 7.19 2.253 9.188a10.7 10.7 0 0 0 2.287 2.233c.346.244.652.42.893.533q.18.085.293.118a1 1 0 0 0 .101.025 1 1 0 0 0 .1-.025q.114-.034.294-.118c.24-.113.547-.29.893-.533a10.7 10.7 0 0 0 2.287-2.233c1.527-1.997 2.807-5.031 2.253-9.188a.48.48 0 0 0-.328-.39c-.651-.213-1.75-.56-2.837-.855C9.552 1.29 8.531 1.067 8 1.067c-.53 0-1.552.223-2.662.524z" />
-              <path d="M5.072.56C6.157.265 7.31 0 8 0s1.843.265 2.928.56c1.11.3 2.229.655 2.887.87a1.54 1.54 0 0 1 1.044 1.262c.596 4.477-.787 7.795-2.465 9.99a11.8 11.8 0 0 1-2.517 2.453 7 7 0 0 1-1.048.625c-.28.132-.581.24-.829.24s-.548-.108-.829-.24a7 7 0 0 1-1.048-.625 11.8 11.8 0 0 1-2.517-2.453C1.928 10.487.545 7.169 1.141 2.692A1.54 1.54 0 0 1 2.185 1.43 63 63 0 0 1 5.072.56" />
+              <path d="M5.338 1.59a61 61 0 0 0-2.837.856.48.48 0 0 0-.328.39c-.554 4.157.726 7.19 2.253 9.188a10.7 10.7 0 0 0 2.287 2.233c.346.244.652.42.893.533q.18.085.293.118a1 1 0 0 0 .101.025 1 1 0 0 0 .1-.025q.114-.034.294-.118c.24-.113.547-.29.893-.533a10.7 10.7 0 0 0 2.287-2.233c1.527-1.997 2.807-5.031 2.253-9.188a.48.48 0 0 0-.328-.39c-.651-.213-1.75-.56-2.837-.855C9.552 1.29 8.531 1.067 8 1.067c-.53 0-1.552.223-2.662.524zM5.072.56C6.157.265 7.31 0 8 0s1.843.265 2.928.56c1.11.3 2.229.655 2.887.87a1.54 1.54 0 0 1 1.044 1.262c.596 4.477-.787 7.795-2.465 9.99a11.8 11.8 0 0 1-2.517 2.453 7 7 0 0 1-1.048.625c-.28.132-.581.24-.829.24s-.548-.108-.829-.24a7 7 0 0 1-1.048-.625 11.8 11.8 0 0 1-2.517-2.453C1.928 10.487.545 7.169 1.141 2.692A1.54 1.54 0 0 1 2.185 1.43 63 63 0 0 1 5.072.56" />
             </svg>
             <span class="ms-2 fw-semibold">PIRMS</span>
           </div>
@@ -267,7 +258,6 @@ try {
           </div>
         </div>
 
-        <!-- Contact Information -->
         <div class="col-md-4 mb-4 mb-md-0 text-md-center text-center">
           <span class="fw-semibold mb-2 d-block">Contact Information</span>
           <div class="small text-white-50">
@@ -277,7 +267,6 @@ try {
           </div>
         </div>
 
-        <!-- Quick Links -->
         <div class="col-md-4 text-md-end text-center">
           <span class="fw-semibold mb-2 d-block">Quick Links</span>
           <ul class="list-unstyled small text-white-50">
@@ -295,20 +284,13 @@ try {
     </div>
   </footer>
 
-  <!--enf of footer section -->
-
-
-
-
-
   <script>
     // Charges list management
     const chargesListDiv = document.getElementById('chargesList');
     const newChargeInput = document.getElementById('newCharge');
     const addChargeBtn = document.getElementById('addChargeBtn');
-    let charges = []; // Array to store charges
+    let charges = [];
 
-    // Function to draw the badges
     function renderCharges() {
       chargesListDiv.innerHTML = '';
       if (charges.length === 0) {
@@ -319,22 +301,19 @@ try {
         return;
       }
       charges.forEach((charge, index) => {
-        // Create the badge style
         const span = document.createElement('span');
-        span.className = 'badge bg-secondary me-1 mb-1'; // Bootstrap badge style
+        span.className = 'badge bg-secondary me-1 mb-1';
         span.style.fontSize = '0.9rem';
         span.innerHTML = `${charge} <span style="cursor:pointer; margin-left:5px;" onclick="removeCharge(${index})">&times;</span>`;
         chargesListDiv.appendChild(span);
       });
     }
 
-    // Helper to remove charge
     window.removeCharge = function(index) {
       charges.splice(index, 1);
       renderCharges();
     }
 
-    // Add button click
     addChargeBtn.addEventListener('click', () => {
       const charge = newChargeInput.value.trim();
       if (charge) {
@@ -344,20 +323,17 @@ try {
       }
     });
 
-    // Allow Enter key to add charge
     newChargeInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
-        e.preventDefault(); // Stop form submit on Enter
+        e.preventDefault();
         addChargeBtn.click();
       }
     });
 
-    // --- FORM SUBMISSION LOGIC ---
     const form = document.getElementById('suspectForm');
     const chargesHiddenInput = document.getElementById('chargesHiddenInput');
 
     form.addEventListener('submit', function(e) {
-      // 1. Basic Validation
       let valid = true;
       const requiredIds = ['name', 'age', 'description', 'caseId'];
 
@@ -372,24 +348,17 @@ try {
       });
 
       if (!valid) {
-        e.preventDefault(); // Stop if invalid
+        e.preventDefault();
         e.stopPropagation();
         form.classList.add('was-validated');
         return;
       }
 
-      // 2. CRITICAL: Put the charges array into the hidden input so PHP can read it
-      // Converts ["Theft", "Fraud"] into "Theft, Fraud"
       chargesHiddenInput.value = charges.join(', ');
-
-      // 3. WE DO NOT CALL e.preventDefault() HERE! 
-      // We let the form submit naturally to the PHP server.
     });
   </script>
 
-
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-
 </body>
 
 </html>

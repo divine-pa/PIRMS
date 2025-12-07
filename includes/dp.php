@@ -17,7 +17,6 @@ try {
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         ]
     );
-    echo "Connected successfully to XAMPP on port 2007!";
 } catch (PDOException $e) {
     die("Database connection failed: " . htmlspecialchars($e->getMessage()));
 }
