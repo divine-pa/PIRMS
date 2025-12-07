@@ -5,6 +5,19 @@ require_once __DIR__ . '/includes/db.php';
 
 $user = get_logged_in_user();
 
+// Get user's name from officer table
+$stmt = $pdo->prepare("
+    SELECT o.name 
+    FROM officer o 
+    JOIN USER_ACCOUNT u ON o.name = u.username 
+    WHERE u.user_id = ?
+");
+$stmt->execute([$user['user_id']]);
+$officer_data = $stmt->fetch();
+
+// Use officer name if available, otherwise use username
+$user_name = $officer_data['name'] ?? $user['username'];
+
 $statsSql = "
 SELECT
   (SELECT COUNT(*) FROM `CASE`) AS total_cases,
@@ -88,9 +101,12 @@ if (!$stats) {
 
 
   <div class="container mb-7">
-    <!-- Header -->
+    <!-- Header with Welcome Message -->
     <div class="d-flex justify-content-between align-items-center mb-4">
-      <h1>Dashboard</h1>
+      <div>
+        <h1>Dashboard</h1>
+        <p class="text-muted mb-0">Welcome, <strong><?php echo htmlspecialchars($user_name); ?></strong>!</p>
+      </div>
       <br>
       <a href="notificationpage.php" class="text-body position-relative" aria-label="Notifications">
         <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" class="bi bi-bell" viewBox="0 0 16 16">
@@ -254,8 +270,6 @@ if (!$stats) {
     </div>
   </footer>
   <!-- end of  Footer Section -->
-
-
 
 
 

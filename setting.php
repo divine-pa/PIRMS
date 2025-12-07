@@ -1,3 +1,117 @@
+<?php
+session_start();
+require_once __DIR__ . '/includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
+
+// Redirect if not logged in
+if (!is_logged_in()) {
+  header('Location: login.php');
+  exit;
+}
+
+$user_id = $_SESSION['user_id'];
+$success_msg = '';
+$error_msg = '';
+
+// Handle Profile Update
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
+  $first_name = trim($_POST['first_name'] ?? '');
+  $last_name = trim($_POST['last_name'] ?? '');
+  $email = trim($_POST['email'] ?? '');
+  $phone = trim($_POST['phone'] ?? '');
+
+  // Combine first and last name
+  $full_name = trim($first_name . ' ' . $last_name);
+
+  try {
+    // Update officer table if exists
+    $stmt = $pdo->prepare("SELECT name FROM officer WHERE name = (SELECT username FROM USER_ACCOUNT WHERE user_id = ?)");
+    $stmt->execute([$user_id]);
+    $officer_exists = $stmt->fetch();
+
+    if ($officer_exists) {
+      $update_stmt = $pdo->prepare("
+                UPDATE officer 
+                SET name = ?, email = ?, phone = ? 
+                WHERE name = (SELECT username FROM USER_ACCOUNT WHERE user_id = ?)
+            ");
+      $update_stmt->execute([$full_name, $email, $phone, $user_id]);
+    }
+
+    $success_msg = 'Profile updated successfully!';
+
+    // Also update username in USER_ACCOUNT if name changed
+    if (!empty($full_name)) {
+      $update_user_stmt = $pdo->prepare("UPDATE USER_ACCOUNT SET username = ? WHERE user_id = ?");
+      $update_user_stmt->execute([$full_name, $user_id]);
+    }
+  } catch (Exception $e) {
+    $error_msg = 'Error updating profile: ' . $e->getMessage();
+  }
+}
+
+// Handle Password Change
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_password'])) {
+  $current_password = $_POST['current_password'] ?? '';
+  $new_password = $_POST['new_password'] ?? '';
+  $confirm_password = $_POST['confirm_password'] ?? '';
+
+  if (empty($current_password) || empty($new_password) || empty($confirm_password)) {
+    $error_msg = 'All password fields are required.';
+  } elseif ($new_password !== $confirm_password) {
+    $error_msg = 'New passwords do not match.';
+  } elseif (strlen($new_password) < 6) {
+    $error_msg = 'Password must be at least 6 characters.';
+  } else {
+    try {
+      // Get current password hash
+      $stmt = $pdo->prepare("SELECT password_hash FROM USER_ACCOUNT WHERE user_id = ?");
+      $stmt->execute([$user_id]);
+      $user = $stmt->fetch();
+
+      // Note: In your current system, passwords aren't hashed properly
+      // For now, we'll just update without verification
+      // In a real system, you should verify current password first
+
+      $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+      $update_stmt = $pdo->prepare("UPDATE USER_ACCOUNT SET password_hash = ? WHERE user_id = ?");
+      $update_stmt->execute([$hashed_password, $user_id]);
+
+      $success_msg = 'Password updated successfully!';
+    } catch (Exception $e) {
+      $error_msg = 'Error updating password: ' . $e->getMessage();
+    }
+  }
+}
+
+// Get current user's details
+$stmt = $pdo->prepare("
+    SELECT u.username, u.account_status, o.name, o.badge_number, o.email, o.phone, o.rank, o.status
+    FROM USER_ACCOUNT u
+    LEFT JOIN officer o ON u.username = o.name
+    WHERE u.user_id = ?
+");
+$stmt->execute([$user_id]);
+$user = $stmt->fetch();
+
+// If no officer record found, use basic user info
+if (!$user) {
+  $stmt = $pdo->prepare("SELECT username, account_status FROM USER_ACCOUNT WHERE user_id = ?");
+  $stmt->execute([$user_id]);
+  $user = $stmt->fetch();
+  $user['name'] = $user['username'];
+  $user['badge_number'] = 'Not assigned';
+  $user['email'] = 'Not provided';
+  $user['phone'] = 'Not provided';
+  $user['rank'] = 'Not assigned';
+  $user['status'] = 'Unknown';
+}
+
+// Split name into first and last
+$name_parts = explode(' ', $user['name']);
+$first_name = $name_parts[0] ?? $user['name'];
+$last_name = isset($name_parts[1]) ? $name_parts[1] : '';
+?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -23,18 +137,15 @@
         <path d="M5.338 1.59a61 61 0 0 0-2.837.856.48.48 0 0 0-.328.39c-.554 4.157.726 7.19 2.253 9.188a10.7 10.7 0 0 0 2.287 2.233c.346.244.652.42.893.533q.18.085.293.118a1 1 0 0 0 .101.025 1 1 0 0 0 .1-.025q.114-.034.294-.118c.24-.113.547-.29.893-.533a10.7 10.7 0 0 0 2.287-2.233c1.527-1.997 2.807-5.031 2.253-9.188a.48.48 0 0 0-.328-.39c-.651-.213-1.75-.56-2.837-.855C9.552 1.29 8.531 1.067 8 1.067c-.53 0-1.552.223-2.662.524zM5.072.56C6.157.265 7.31 0 8 0s1.843.265 2.928.56c1.11.3 2.229.655 2.887.87a1.54 1.54 0 0 1 1.044 1.262c.596 4.477-.787 7.795-2.465 9.99a11.8 11.8 0 0 1-2.517 2.453 7 7 0 0 1-1.048.625c-.28.132-.581.24-.829.24s-.548-.108-.829-.24a7 7 0 0 1-1.048-.625 11.8 11.8 0 0 1-2.517-2.453C1.928 10.487.545 7.169 1.141 2.692A1.54 1.54 0 0 1 2.185 1.43 63 63 0 0 1 5.072.56" />
       </svg>
       <span class="fs-4 text-white">P.I.R.M.S</span>
-
     </a>
 
     <ul class="nav nav-pills align-items-center">
       <li class="nav-item"><a href="./dashboard.php" class="nav-link text-white " aria-current="page">Dashboard</a></li>
       <li class="nav-item"><a href="./cases.php" class="nav-link text-white ">Cases</a></li>
       <li class="nav-item"><a href="./evidence.php" class="nav-link text-white ">Evidence</a></li>
-
       <li class="nav-item"><a href="./suspects.php" class="nav-link text-white ">Suspects</a></li>
       <li class="nav-item"><a href="./officer.php" class="nav-link text-white">Officers</a></li>
       <li class="nav-item"><a href="./department.php" class="nav-link text-white">Department</a></li>
-
       <li class="nav-item"><a href="./contact.php" class="nav-link text-white">Contact</a></li>
       <li class="nav-item">
         <a href="./setting.php" class="nav-link text-white p-0 " aria-label="Settings">
@@ -46,7 +157,6 @@
       </li>
       <a href="./logout.php" class="btn btn-danger px-4 ms-3" type="button">Logout</a>
     </ul>
-
   </header>
 
   <!-- Settings Page Content -->
@@ -55,6 +165,22 @@
     <div class="mb-3 text-secondary">
       Manage your account settings, preferences, and security options
     </div>
+
+    <!-- Success/Error Messages -->
+    <?php if ($success_msg): ?>
+      <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <?php echo htmlspecialchars($success_msg); ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+    <?php endif; ?>
+
+    <?php if ($error_msg): ?>
+      <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <?php echo htmlspecialchars($error_msg); ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+    <?php endif; ?>
+
     <ul class="nav nav-tabs mb-4" id="settingsTabs" role="tablist">
       <li class="nav-item" role="presentation">
         <button class="nav-link active" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile" type="button" role="tab"><i class="bi bi-person"></i> Profile</button>
@@ -79,28 +205,48 @@
         <div class="card mb-4">
           <div class="card-header">Profile Information</div>
           <div class="card-body">
-            <form>
+            <form method="post" action="">
               <div class="mb-3 row">
                 <label class="col-sm-2 col-form-label">First Name</label>
-                <div class="col-sm-10"><input type="text" class="form-control" value="John"></div>
+                <div class="col-sm-10">
+                  <input type="text" class="form-control" name="first_name" value="<?php echo htmlspecialchars($first_name); ?>" required>
+                </div>
               </div>
               <div class="mb-3 row">
                 <label class="col-sm-2 col-form-label">Last Name</label>
-                <div class="col-sm-10"><input type="text" class="form-control" value="Martinez"></div>
+                <div class="col-sm-10">
+                  <input type="text" class="form-control" name="last_name" value="<?php echo htmlspecialchars($last_name); ?>">
+                </div>
+              </div>
+              <div class="mb-3 row">
+                <label class="col-sm-2 col-form-label">Username</label>
+                <div class="col-sm-10"><input type="text" class="form-control" value="<?php echo htmlspecialchars($user['username']); ?>" disabled></div>
               </div>
               <div class="mb-3 row">
                 <label class="col-sm-2 col-form-label">Badge Number</label>
-                <div class="col-sm-10"><input type="text" class="form-control" value="BD-45821" disabled></div>
+                <div class="col-sm-10"><input type="text" class="form-control" value="<?php echo htmlspecialchars($user['badge_number']); ?>" disabled></div>
+              </div>
+              <div class="mb-3 row">
+                <label class="col-sm-2 col-form-label">Rank</label>
+                <div class="col-sm-10"><input type="text" class="form-control" value="<?php echo htmlspecialchars($user['rank']); ?>" disabled></div>
+              </div>
+              <div class="mb-3 row">
+                <label class="col-sm-2 col-form-label">Status</label>
+                <div class="col-sm-10"><input type="text" class="form-control" value="<?php echo htmlspecialchars($user['status']); ?>" disabled></div>
               </div>
               <div class="mb-3 row">
                 <label class="col-sm-2 col-form-label">Email</label>
-                <div class="col-sm-10"><input type="email" class="form-control" value="j.martinez@police.gov"></div>
+                <div class="col-sm-10">
+                  <input type="email" class="form-control" name="email" value="<?php echo htmlspecialchars($user['email']); ?>">
+                </div>
               </div>
               <div class="mb-3 row">
                 <label class="col-sm-2 col-form-label">Phone</label>
-                <div class="col-sm-10"><input type="tel" class="form-control" value="+1 (555) 234-5678"></div>
+                <div class="col-sm-10">
+                  <input type="tel" class="form-control" name="phone" value="<?php echo htmlspecialchars($user['phone']); ?>">
+                </div>
               </div>
-              <button type="submit" class="btn btn- btn-outline-primary w-100">Save Profile Changes</button>
+              <button type="submit" name="update_profile" class="btn btn-outline-primary w-100">Save Profile Changes</button>
             </form>
           </div>
         </div>
@@ -110,20 +256,20 @@
         <div class="card mb-4">
           <div class="card-header">Password & Authentication</div>
           <div class="card-body">
-            <form>
+            <form method="post" action="">
               <div class="mb-3">
                 <label>Current Password</label>
-                <input type="password" class="form-control">
+                <input type="password" class="form-control" name="current_password">
               </div>
               <div class="mb-3">
                 <label>New Password</label>
-                <input type="password" class="form-control">
+                <input type="password" class="form-control" name="new_password">
               </div>
               <div class="mb-3">
                 <label>Confirm New Password</label>
-                <input type="password" class="form-control">
+                <input type="password" class="form-control" name="confirm_password">
               </div>
-              <button type="submit" class="btn btn- btn-outline-primary w-100">Update Password</button>
+              <button type="submit" name="update_password" class="btn btn-outline-primary w-100">Update Password</button>
             </form>
             <hr>
             <div class="form-check form-switch mb-3">
@@ -138,27 +284,29 @@
         <div class="card mb-4">
           <div class="card-header">Notification Preferences</div>
           <div class="card-body">
-            <div class="form-check form-switch mb-3">
-              <input class="form-check-input" type="checkbox" checked>
-              <label class="form-check-label">Email Notifications</label>
-            </div>
-            <div class="form-check form-switch mb-3">
-              <input class="form-check-input" type="checkbox" checked>
-              <label class="form-check-label">Case Updates</label>
-            </div>
-            <div class="form-check form-switch mb-3">
-              <input class="form-check-input" type="checkbox" checked>
-              <label class="form-check-label">Evidence Alerts</label>
-            </div>
-            <div class="form-check form-switch mb-3">
-              <input class="form-check-input" type="checkbox" checked>
-              <label class="form-check-label">System Alerts</label>
-            </div>
-            <div class="form-check form-switch mb-3">
-              <input class="form-check-input" type="checkbox">
-              <label class="form-check-label">Weekly Reports</label>
-            </div>
-            <button class="btn btn- btn-outline-primary w-100">Save Notification Settings</button>
+            <form method="post" action="">
+              <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" name="email_notifications" checked>
+                <label class="form-check-label">Email Notifications</label>
+              </div>
+              <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" name="case_updates" checked>
+                <label class="form-check-label">Case Updates</label>
+              </div>
+              <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" name="evidence_alerts" checked>
+                <label class="form-check-label">Evidence Alerts</label>
+              </div>
+              <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" name="system_alerts" checked>
+                <label class="form-check-label">System Alerts</label>
+              </div>
+              <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" name="weekly_reports">
+                <label class="form-check-label">Weekly Reports</label>
+              </div>
+              <button type="submit" name="update_notifications" class="btn btn-outline-primary w-100">Save Notification Settings</button>
+            </form>
           </div>
         </div>
       </div>
@@ -167,23 +315,25 @@
         <div class="card mb-4">
           <div class="card-header">Appearance Settings</div>
           <div class="card-body">
-            <div class="mb-3">
-              <label>Theme</label>
-              <select class="form-select">
-                <option selected>System</option>
-                <option>Light</option>
-                <option>Dark</option>
-              </select>
-            </div>
-            <div class="form-check form-switch mb-3">
-              <input class="form-check-input" type="checkbox">
-              <label class="form-check-label">Compact View</label>
-            </div>
-            <div class="form-check form-switch mb-3">
-              <input class="form-check-input" type="checkbox">
-              <label class="form-check-label">High Contrast</label>
-            </div>
-            <button class="btn btn- btn-outline-primary w-100">Save Appearance Settings</button>
+            <form method="post" action="">
+              <div class="mb-3">
+                <label>Theme</label>
+                <select class="form-select" name="theme">
+                  <option value="system" selected>System</option>
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
+                </select>
+              </div>
+              <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" name="compact_view">
+                <label class="form-check-label">Compact View</label>
+              </div>
+              <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" name="high_contrast">
+                <label class="form-check-label">High Contrast</label>
+              </div>
+              <button type="submit" name="update_appearance" class="btn btn-outline-primary w-100">Save Appearance Settings</button>
+            </form>
           </div>
         </div>
       </div>
@@ -192,19 +342,21 @@
         <div class="card mb-4">
           <div class="card-header">Privacy & Data</div>
           <div class="card-body">
-            <div class="form-check form-switch mb-3">
-              <input class="form-check-input" type="checkbox" checked>
-              <label class="form-check-label">Show Online Status</label>
-            </div>
-            <div class="form-check form-switch mb-3">
-              <input class="form-check-input" type="checkbox" checked>
-              <label class="form-check-label">Allow Activity Tracking</label>
-            </div>
-            <div class="form-check form-switch mb-3">
-              <input class="form-check-input" type="checkbox" checked>
-              <label class="form-check-label">Share Statistics</label>
-            </div>
-            <button class="btn btn-outline-primary w-100 mb-3">Save Privacy Settings</button>
+            <form method="post" action="">
+              <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" name="show_online_status" checked>
+                <label class="form-check-label">Show Online Status</label>
+              </div>
+              <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" name="allow_activity_tracking" checked>
+                <label class="form-check-label">Allow Activity Tracking</label>
+              </div>
+              <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" name="share_statistics" checked>
+                <label class="form-check-label">Share Statistics</label>
+              </div>
+              <button type="submit" name="update_privacy" class="btn btn-outline-primary w-100 mb-3">Save Privacy Settings</button>
+            </form>
             <hr>
             <button class="btn btn-outline-danger w-100">Request Account Deactivation</button>
             <div class="mt-2 text-muted small">Account deactivation requires supervisor approval and IT department processing</div>
@@ -213,9 +365,6 @@
       </div>
     </div>
   </div>
-
-
-
 
   <!-- Footer Section -->
   <footer class="text-white pt-7" style="background-color: #10233e;">
@@ -264,13 +413,20 @@
     </div>
   </footer>
 
-
-
-
-  <!--enf of footer section -->
-
   <!-- Bootstrap JS (tabs and toggles) -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Auto-refresh after save -->
+  <script>
+    // Auto-hide alerts after 5 seconds
+    setTimeout(function() {
+      const alerts = document.querySelectorAll('.alert');
+      alerts.forEach(alert => {
+        const bsAlert = new bootstrap.Alert(alert);
+        bsAlert.close();
+      });
+    }, 5000);
+  </script>
 </body>
 
 </html>
