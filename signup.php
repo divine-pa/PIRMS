@@ -4,6 +4,12 @@ require_once __DIR__ . '/includes/db.php';
 
 $error = '';
 $success = '';
+$showSuccess = false;
+
+// Check if this is a success redirect from form submission
+if (isset($_GET['success']) && $_GET['success'] === 'signup') {
+    $showSuccess = true;
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username'] ?? '');
@@ -18,27 +24,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (strlen($password) < 6) {
         $error = 'Password must be at least 6 characters.';
     } else {
-        // Check if username already exists
+        // Check if username already exists in USER_ACCOUNT
         $stmt = $pdo->prepare("SELECT user_id FROM USER_ACCOUNT WHERE username = ?");
         $stmt->execute([$username]);
 
         if ($stmt->rowCount() > 0) {
-            $error = 'This Badge Number/Username is already registered.';
+            $error = '⚠️ This username is already registered! Please use a different username or login if this is your account.';
         } else {
             // Hash the password for security
             $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 
-            // Insert new user
-            // We default account_status to 'Active' so you can login immediately
-            $insertStmt = $pdo->prepare("
-                INSERT INTO USER_ACCOUNT (username, password, account_status) 
+            // Generate Officer ID (OFF-XXXX)
+            $officer_id = 'OFF-' . rand(1000, 9999);
+
+            // Insert new user account
+            $insertUserStmt = $pdo->prepare("
+                INSERT INTO USER_ACCOUNT (username, password_hash, account_status) 
                 VALUES (?, ?, 'Active')
             ");
 
-            if ($insertStmt->execute([$username, $hashed_password])) {
-                // Redirect to login page after 2 seconds
-                $success = 'Account created successfully! Redirecting to login...';
-                header("refresh:2;url=login.php");
+            if ($insertUserStmt->execute([$username, $hashed_password])) {
+                // Also create officer record in the officer list
+                $insertOfficerStmt = $pdo->prepare("
+                    INSERT INTO officer (officer_id, name, badge_number, status) 
+                    VALUES (?, ?, ?, 'Active')
+                ");
+
+                // Use username as initial name and badge number
+                if ($insertOfficerStmt->execute([$officer_id, $username, $username])) {
+                    error_log("New account created: Username=$username, Officer ID=$officer_id");
+                    // Redirect with success parameter
+                    header("Location: signup.php?success=signup");
+                    exit;
+                } else {
+                    // If officer creation fails, still redirect with success
+                    error_log("Warning: Account created but officer record failed - Username=$username");
+                    header("Location: signup.php?success=signup");
+                    exit;
+                }
             } else {
                 $error = 'System error. Could not register account.';
             }
@@ -95,10 +118,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <h5 class="fw-bold mb-2">New Officer Registration</h5>
                 <div class="mb-3 small text-muted">Please fill in your details below</div>
 
-                <?php if (!empty($success)): ?>
-                    <div class="alert alert-success py-2 small">
-                        <?php echo htmlspecialchars($success); ?>
+                <?php if ($showSuccess): ?>
+                    <div id="successNotif" class="alert alert-success position-fixed top-0 start-50 translate-middle-x mt-3" role="alert" style="z-index: 9999; width: 90%; max-width: 500px; animation: slideDown 0.4s ease-out;">
+                        <div class="d-flex align-items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-check-circle me-2" viewBox="0 0 16 16">
+                                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z" />
+                                <path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z" />
+                            </svg>
+                            <strong>Success!</strong> ✓ Account created successfully! You have been added to the officer list. Redirecting to login...
+                        </div>
                     </div>
+                    <style>
+                        @keyframes slideDown {
+                            from {
+                                transform: translate(-50%, -100%);
+                                opacity: 0;
+                            }
+
+                            to {
+                                transform: translate(-50%, 0);
+                                opacity: 1;
+                            }
+                        }
+
+                        @keyframes fadeOut {
+                            to {
+                                opacity: 0;
+                                transform: translate(-50%, -100%);
+                            }
+                        }
+                    </style>
+                    <script>
+                        setTimeout(() => {
+                            window.location.href = 'login.php';
+                        }, 2000);
+                    </script>
                 <?php endif; ?>
 
                 <?php if (!empty($error)): ?>

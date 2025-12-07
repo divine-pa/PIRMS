@@ -2,6 +2,9 @@
 session_start();
 require_once 'includes/db.php';
 
+// Check for success message
+$showSuccess = isset($_GET['msg']) && $_GET['msg'] === 'added';
+
 // Fetch suspects from database, newest first
 // We check if the table exists first to avoid crashes
 try {
@@ -58,7 +61,7 @@ try {
           </svg>
         </a>
       </li>
-      <button onclick="location.href='login.php'" class="btn btn-warning px-4 ms-3" type="button">Login</button>
+      <a href="logout.php" class="btn btn-warning px-4 ms-3" type="button">Logout</a>
     </ul>
 
   </header>
@@ -68,6 +71,47 @@ try {
 
   <!--header end-->
 
+  <!-- Success Toast Notification -->
+  <?php if ($showSuccess): ?>
+    <div id="successNotification" class="alert alert-success position-fixed top-0 start-50 translate-middle-x mt-3" role="alert" style="z-index: 9999; width: 90%; max-width: 500px; animation: slideDown 0.4s ease-out;">
+      <div class="d-flex align-items-center">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-check-circle me-2" viewBox="0 0 16 16">
+          <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z" />
+          <path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z" />
+        </svg>
+        <strong>Success!</strong> New suspect has been added to the database.
+      </div>
+    </div>
+    <style>
+      @keyframes slideDown {
+        from {
+          transform: translate(-50%, -100%);
+          opacity: 0;
+        }
+
+        to {
+          transform: translate(-50%, 0);
+          opacity: 1;
+        }
+      }
+
+      @keyframes fadeOut {
+        to {
+          opacity: 0;
+          transform: translate(-50%, -100%);
+        }
+      }
+    </style>
+    <script>
+      setTimeout(() => {
+        const notif = document.getElementById('successNotification');
+        if (notif) {
+          notif.style.animation = 'fadeOut 0.5s ease-in forwards';
+          setTimeout(() => notif.remove(), 500);
+        }
+      }, 1000);
+    </script>
+  <?php endif; ?>
 
   <div class="container mb-">
     <div class="text-left mb-4 mt-5">

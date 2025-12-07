@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
   <section style="background-color: #081b34;">
-    <header class="d-flex flex-wrap justify-content-center py-3 mb-4 ">
+    <!-- <header class="d-flex flex-wrap justify-content-center py-3 mb-4 ">
       <a href="./images/dog-img.jpg" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto link-body-emphasis text-decoration-none">
         <svg class="bi me-2" width="40" height="32">
           <use xlink:href="#bootstrap"></use>
@@ -82,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <button onclick="location.href='login.php'" class="btn btn-warning px-4 ms-3" type="button">Login</button>
       </ul>
 
-    </header>
+    </header> -->
 
   </section>
 
@@ -158,7 +158,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </form>
         <div class="mt-2 text-center small">
           Don't have an account?
-          <a href="/signup.php" class="text-primary text-decoration-underline fw-semibold">Sign Up</a>
+          <a href="signup.php" class="text-primary text-decoration-underline fw-semibold">Sign Up</a>
         </div>
       </div>
     </div>

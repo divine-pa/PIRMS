@@ -27,11 +27,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $stmt = $pdo->prepare($sql);
 
   if ($stmt->execute([$evidence_id, $type, $desc, $condition, $case_id, $collected_by, $date, $location, $storage, $notes])) {
+    error_log("Evidence inserted: ID=$evidence_id, Case=$case_id");
     header("Location: evidence.php?msg=added");
     exit;
   } else {
     die("Error: " . implode(" ", $stmt->errorInfo()));
   }
+}
+
+// Fetch cases from database for the form
+try {
+  $cases_stmt = $pdo->query("SELECT case_id, title FROM `case` ORDER BY case_id DESC");
+  $cases = $cases_stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+  $cases = [];
+}
+
+// Fetch officers from database for the form
+try {
+  $officers_stmt = $pdo->query("SELECT officer_id, name FROM officer ORDER BY name ASC");
+  $officers = $officers_stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+  $officers = [];
 }
 ?>
 
@@ -83,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </svg>
           </a>
         </li>
-        <button onclick="location.href='login.php'" class="btn btn-warning px-4 ms-3" type="button">Login</button>
+        <a href="logout.php" class="btn btn-warning px-4 ms-3" type="button">Logout</a>
       </ul>
     </header>
 
@@ -148,9 +165,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <label class="form-label">Associated Case <span class="text-danger">*</span></label>
             <select class="form-select" name="case_id" required>
               <option value="" selected disabled>Select case</option>
-              <option value="CASE-2025-081">CASE-2025-081 - Commercial Burglary</option>
-              <option value="CASE-2025-082">CASE-2025-082 - Vehicle Theft</option>
-              <option value="CASE-2025-083">CASE-2025-083 - Cybercrime</option>
+              <?php foreach ($cases as $case): ?>
+                <option value="<?php echo htmlspecialchars($case['case_id']); ?>">
+                  <?php echo htmlspecialchars($case['case_id'] . ' - ' . $case['title']); ?>
+                </option>
+              <?php endforeach; ?>
             </select>
           </div>
         </div>
@@ -165,9 +184,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <label class="form-label">Collected By <span class="text-danger">*</span></label>
             <select class="form-select" name="collected_by" required>
               <option value="" selected disabled>Select officer</option>
-              <option>Det. Sarah Johnson</option>
-              <option>Det. Michael Chen</option>
-              <option>Det. Robert Williams</option>
+              <?php foreach ($officers as $officer): ?>
+                <option value="<?php echo htmlspecialchars($officer['officer_id']); ?>">
+                  <?php echo htmlspecialchars($officer['name']); ?>
+                </option>
+              <?php endforeach; ?>
             </select>
           </div>
 

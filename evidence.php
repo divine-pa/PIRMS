@@ -1,3 +1,23 @@
+<?php
+session_start();
+require_once 'includes/db.php';
+
+// Check for success message
+$showSuccess = isset($_GET['msg']) && $_GET['msg'] === 'added';
+
+// Fetch evidence from database with officer names
+try {
+  $stmt = $pdo->query("
+    SELECT e.*, o.name AS officer_name
+    FROM evidence e
+    LEFT JOIN officer o ON e.collected_by = o.officer_id
+    ORDER BY e.date_collected DESC
+  ");
+  $evidences = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+  $evidences = [];
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -45,7 +65,7 @@
             </svg>
           </a>
         </li>
-        <button onclick="location.href='login.php'" class="btn btn-warning px-4 ms-3" type="button">Login</button>
+        <a href="logout.php" class="btn btn-warning px-4 ms-3" type="button">Logout</a>
       </ul>
 
 
@@ -55,17 +75,55 @@
 
   <!--header end-->
 
+  <!-- Success Toast Notification -->
+  <?php if ($showSuccess): ?>
+    <div id="successNotification" class="alert alert-success position-fixed top-0 start-50 translate-middle-x mt-3" role="alert" style="z-index: 9999; width: 90%; max-width: 500px; animation: slideDown 0.4s ease-out;">
+      <div class="d-flex align-items-center">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-check-circle me-2" viewBox="0 0 16 16">
+          <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z" />
+          <path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z" />
+        </svg>
+        <strong>Success!</strong> New evidence has been added to the chain of custody system.
+      </div>
+    </div>
+    <style>
+      @keyframes slideDown {
+        from {
+          transform: translate(-50%, -100%);
+          opacity: 0;
+        }
 
+        to {
+          transform: translate(-50%, 0);
+          opacity: 1;
+        }
+      }
 
+      @keyframes fadeOut {
+        to {
+          opacity: 0;
+          transform: translate(-50%, -100%);
+        }
+      }
+    </style>
+    <script>
+      setTimeout(() => {
+        const notif = document.getElementById('successNotification');
+        if (notif) {
+          notif.style.animation = 'fadeOut 0.5s ease-in forwards';
+          setTimeout(() => notif.remove(), 500);
+        }
+      }, 1000);
+    </script>
+  <?php endif; ?>
 
   <div class="container mb-0">
-    <div class="text-left mb-4 mt-5">
-      <h2 style="color: #081b34;">Evidence Directory</h2>
-      <p style="color:rgb(139, 140, 140);">Browse and search all evidence items related to investigations.</p>
-      <button onclick="location.href='newevidence.php'" type="button" class="btn text-white fw-bold px-4 py-2 d-flex align-items-center float-end" style="background:#081b34;">
-        <span class="me-2 fs-5">+</span> Add New Evidence
-      </button>
-    </div>
+    <h2 style="color: #081b34;">Evidence Directory</h2>
+    <p style="color:rgb(139, 140, 140);">Browse and search all evidence items related to investigations.</p>
+    <button onclick="location.href='newevidence.php'" type="button" class="btn text-white fw-bold px-4 py-2 d-flex align-items-center float-end" style="background:#081b34;">
+      <span class="me-2 fs-5">+</span> Add New Evidence
+    </button>
+  </div>
   </div>
 
 
@@ -84,17 +142,6 @@
       <div class="card-body">
         <h5 class="card-title">Evidence Registry</h5>
 
-        <?php
-        require_once 'includes/db.php';
-        // Connect and fetch evidence
-        try {
-          $stmt = $pdo->query("SELECT * FROM evidence ORDER BY created_at DESC");
-          $evidenceList = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (Exception $e) {
-          echo "<div class='alert alert-danger'>Error: " . $e->getMessage() . "</div>";
-        }
-        ?>
-
         <table class="table table-bordered table-hover align-middle">
           <thead class="table-light">
             <tr>
@@ -107,12 +154,12 @@
             </tr>
           </thead>
           <tbody>
-            <?php if (empty($evidenceList)): ?>
+            <?php if (empty($evidences)): ?>
               <tr>
                 <td colspan="6" class="text-center text-muted">No evidence found in database.</td>
               </tr>
             <?php else: ?>
-              <?php foreach ($evidenceList as $row): ?>
+              <?php foreach ($evidences as $row): ?>
                 <tr>
                   <td class="fw-bold"><?php echo htmlspecialchars($row['evidence_id']); ?></td>
 
@@ -132,7 +179,7 @@
 
                   <td><?php echo htmlspecialchars($row['date_collected']); ?></td>
 
-                  <td><?php echo htmlspecialchars($row['collected_by']); ?></td>
+                  <td><?php echo htmlspecialchars($row['officer_name'] ?? $row['collected_by'] ?? 'Unknown Officer'); ?></td>
                 </tr>
               <?php endforeach; ?>
             <?php endif; ?>

@@ -62,7 +62,7 @@ $avgYears = $totalOfficers > 0 ? round($totalYears / $totalOfficers, 1) : 0;
             </svg>
           </a>
         </li>
-        <button onclick="location.href='login.php'" class="btn btn-warning px-4 ms-3" type="button">Login</button>
+        <a href="logout.php" class="btn btn-warning px-4 ms-3" type="button">Logout</a>
       </ul>
     </header>
   </section>

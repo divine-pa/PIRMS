@@ -27,12 +27,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   // 4. Execute
   if ($stmt->execute([$suspect_id, $name, $gender, $age, $date_of_birth, $address, $physical_description, $case_id, $status, $charges])) {
+    // Log the insertion for debugging
+    error_log("Suspect inserted: ID=$suspect_id, Name=$name, Case=$case_id");
     header("Location: suspects.php?msg=added");
     exit;
   } else {
     // Error handling
     die("Error saving suspect: " . implode(" ", $stmt->errorInfo()));
   }
+}
+
+// Fetch cases from database for the dropdown
+$cases = [];
+try {
+  $stmt = $pdo->query("SELECT case_id, title FROM `case` ORDER BY date_started DESC");
+  $cases = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+  error_log("Error fetching cases: " . $e->getMessage());
 }
 ?>
 
@@ -86,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </svg>
           </a>
         </li>
-        <button onclick="location.href='login.php'" class="btn btn-warning px-4 ms-3" type="button">Login</button>
+        <a href="logout.php" class="btn btn-warning px-4 ms-3" type="button">Logout</a>
       </ul>
     </header>
 
@@ -177,12 +188,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               <label for="caseId" class="form-label">Linked Case <span class="text-danger">*</span></label>
               <select id="caseId" name="caseId" class="form-select" required>
                 <option value="" selected disabled>Select case</option>
-                <option value="CASE-2025-081">CASE-2025-081- Commercial Burglary Investigation</option>
-                <option value="CASE-2025-082">CASE-2025-082- Vehicle Theft Ring</option>
-                <option value="CASE-2025-083">CASE-2025-083 - Cybercrime - Identity Theft</option>
-                <option value="CASE-2025-084">CASE-2025-084 - Assault Investigation</option>
-                <option value="CASE-2025-085">CASE-2025-085 - Fraud Investigation</option>
-                <option value="CASE-2025-185">CASE-2025-185 - Drug Trafficking</option>
+                <?php foreach ($cases as $c): ?>
+                  <option value="<?php echo htmlspecialchars($c['case_id']); ?>">
+                    <?php echo htmlspecialchars($c['case_id'] . ' - ' . $c['title']); ?>
+                  </option>
+                <?php endforeach; ?>
               </select>
               <div class="invalid-feedback">Please select a linked case.</div>
             </div>
